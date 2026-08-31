@@ -1,0 +1,45 @@
+{
+  "name": "catface",
+  "displayName": "CatFace",
+  "description": "Shows your cat's face in the status bar, reacting to how many errors/warnings are in your code.",
+  "version": "0.0.1",
+  "publisher": "you",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "catface.showPanel",
+        "title": "CatFace: Show Cat Panel"
+      }
+    ],
+    "configuration": {
+      "title": "CatFace",
+      "properties": {
+        "catface.warningsCountTowardMood": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether warnings (not just errors) affect your cat's mood."
+        },
+        "catface.thresholds": {
+          "type": "object",
+          "default": { "concerned": 1, "worried": 3, "distressed": 6 },
+          "description": "Problem counts at which the mood changes tiers."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@vscode/vsce": "^2.24.0"
+  }
+}
