@@ -1,18 +1,38 @@
 {
   "name": "catface",
-  "displayName": "CatFace",
+  "displayName": "Bubbles",
   "description": "Shows your cat's face in the status bar, reacting to how many errors/warnings are in your code.",
   "version": "0.0.1",
   "publisher": "you",
   "engines": {
     "vscode": "^1.80.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [
     "onStartupFinished"
   ],
   "main": "./extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "catface-view",
+          "title": "CatFace",
+          "icon": "resources/extension_icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "catface-view": [
+        {
+          "type": "webview",
+          "id": "catface-status",
+          "name": "Status"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "catface.showPanel",
@@ -27,11 +47,6 @@
           "default": true,
           "description": "Whether warnings (not just errors) affect your cat's mood."
         },
-        "catface.thresholds": {
-          "type": "array",
-          "default": [0, 1, 3, 5, 10, 15, 20, 25, 30, 40],
-          "description": "Problem counts at which the mood changes tiers."
-        },
         "catface.defaultMessage": {
           "type": "string",
           "default": "Bubbles has no clue how to feel (No messages to display)",
@@ -39,7 +54,7 @@
         },
         "catface.defaultImage": {
           "type": "string",
-          "default": "default_image",
+          "default": "default_image.jpg",
           "description": "Default image displayed when no image found for threshold"
         }
       }

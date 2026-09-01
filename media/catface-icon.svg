@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Cat head -->
+  <path d="M12 2c-5.5 0-10 4.5-10 10 0 5.5 4.5 10 10 10s10-4.5 10-10c0-5.5-4.5-10-10-10z"/>
+  <!-- Left ear -->
+  <path d="M8 8l-2 -4l2 2"/>
+  <!-- Right ear -->
+  <path d="M16 8l2 -4l-2 2"/>
+  <!-- Left eye -->
+  <circle cx="9" cy="11" r="1.5" fill="currentColor"/>
+  <!-- Right eye -->
+  <circle cx="15" cy="11" r="1.5" fill="currentColor"/>
+  <!-- Mouth -->
+  <path d="M12 14 Q11 15 10 14" stroke="currentColor" stroke-width="1.5" fill="none"/>
+  <path d="M12 14 Q13 15 14 14" stroke="currentColor" stroke-width="1.5" fill="none"/>
+</svg>
