@@ -1,9 +1,9 @@
 {
-  "name": "catface",
-  "displayName": "Bubbles",
-  "description": "Shows your cat's face in the status bar, reacting to how many errors/warnings are in your code.",
+  "name": "bubbleface",
+  "displayName": "BubbleFace",
+  "description": "Shows MY cat in the status bar, judging you and the many errors/warnings in your code. You can also make it you car but why do that when you can have mine?",
   "version": "0.0.1",
-  "publisher": "you",
+  "publisher": "Abigail the cat lover",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -18,56 +18,56 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "catface-view",
-          "title": "CatFace",
+          "id": "bubbleface-view",
+          "title": "BubbleFace",
           "icon": "resources/extension_icon.svg"
         }
       ]
     },
     "views": {
-      "catface-view": [
+      "bubbleface-view": [
         {
           "type": "webview",
-          "id": "catface-status",
-          "name": "Status"
+          "id": "bubbleface-status",
+          "name": "The Judging Panel"
         }
       ]
     },
     "commands": [
       {
-        "command": "catface.showPanel",
-        "title": "CatFace: Show Cat Panel"
+        "command": "bubbleface.showPanel",
+        "title": "BubbleFace: Show Judging Panel"
       }
     ],
     "configuration": {
-      "title": "CatFace",
+      "title": "BubbleFace",
       "properties": {
-        "catface.warningsCountTowardMood": {
+        "bubbleface.warningsCountTowardMood": {
           "type": "boolean",
           "default": true,
           "description": "Whether warnings (not just errors) affect your cat's mood."
         },
-        "catface.defaultMessage": {
+        "bubbleface.defaultMessage": {
           "type": "string",
           "default": "Bubbles has no clue how to feel (No messages to display)",
           "description": "Default message shown when no message strings found for threshold"
         },
-        "catface.defaultImage": {
+        "bubbleface.defaultImage": {
           "type": "string",
           "default": "default_image.jpg",
           "description": "Default image displayed when no image found for threshold"
         },
-        "catface.bulletStyle": {
+        "bubbleface.bulletStyle": {
           "type": "string",
           "default": "^",
           "description": "Bullet style for the list of messages in the webview. Can be any valid CSS list-style-type value."
         },
-        "catface.errorColor": {
+        "bubbleface.errorColor": {
           "type": "string",
           "default": "#BA0606",
           "description": "Color for error messages in the webview."
         },
-        "catface.warningColor": {
+        "bubbleface.warningColor": {
           "type": "string",
           "default": "#DCE009",
           "description": "Color for warning messages in the webview."

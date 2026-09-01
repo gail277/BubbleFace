@@ -44,7 +44,7 @@ function updateStatusBar() {
   statusBarItem.tooltip =
     `${mood.message} tooltip (${count} problem${count === 1 ? '' : 's'})`;
 
-  statusBarItem.command = 'catface.showPanel';
+  statusBarItem.command = 'bubbleface.showPanel';
   statusBarItem.show();
 
   if (webviewView) {
@@ -100,6 +100,12 @@ function getPanelHtml(webview, mood, count) {
         font-weight: 500;
       }
 
+      h4{
+        font-size: 0.8em;
+        margin: 1px 0 1px 0;
+        font-weight: 200;
+        color: var(--vscode-descriptionForeground);
+      }
       .errors{
         width: 100%;
       }
@@ -131,7 +137,7 @@ function getPanelHtml(webview, mood, count) {
 
   <body>
     <img src="${imgSrc}" alt="${mood.message}" />
-
+    <h4>Follow the fat rat on instagram @bubbles_isbeautiful</h4>
     <h2>The number of problems with you:</h2>
     <h1>${count}</h1>
     <h3>${mood.message}</h3>
@@ -149,6 +155,7 @@ function getErrorsHtml() {
   const diagnostics = vscode.languages.getDiagnostics();
 
   let errorsHtml = "";
+  let warningsHtml = "";
 
   for (const [, diags] of diagnostics) {
     for (const d of diags) {
@@ -163,7 +170,7 @@ function getErrorsHtml() {
       }
       else if (d.severity === vscode.DiagnosticSeverity.Warning && config.get('warningsCountTowardMood')) {
 
-        errorsHtml += `
+        warningsHtml += `
                     <li class="warning">
                         <b>[Line ${d.range.start.line + 1}]:</b>
                         ${d.message}
@@ -172,9 +179,9 @@ function getErrorsHtml() {
       }
     }
   }
-  errorsHtml = `<ul>${errorsHtml}</ul>`;
+  html = `<ul>${errorsHtml}${warningsHtml}</ul>`;
 
-  return errorsHtml;
+  return html;
 }
 
 function activate(ctx) {
@@ -182,7 +189,7 @@ function activate(ctx) {
     console.log("activate - STARTING");
     context = ctx;
     console.log("context set");
-    config = vscode.workspace.getConfiguration('catface');
+    config = vscode.workspace.getConfiguration('bubbleface');
     resourcesDir = path.join(context.extensionPath, 'resources');
     console.log("resourcesDir:", resourcesDir);
 
@@ -195,13 +202,13 @@ function activate(ctx) {
     console.log("Status bar item created");
 
     ctx.subscriptions.push(
-      vscode.commands.registerCommand('catface.showPanel', () => {
+      vscode.commands.registerCommand('bubbleface.showPanel', () => {
         if (panel) {
           panel.reveal(vscode.ViewColumn.Beside);
         } else {
           panel = vscode.window.createWebviewPanel(
-            'catface',
-            'CatFace',
+            'bubbleface',
+            'BubbleFace',
             vscode.ViewColumn.Beside,
             {
               enableScripts: false,
@@ -222,7 +229,7 @@ function activate(ctx) {
 
     ctx.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('catface')) updateStatusBar();
+        if (e.affectsConfiguration('bubbleface')) updateStatusBar();
       })
     );
     console.log("onDidChangeConfiguration registered");
@@ -251,7 +258,7 @@ function activate(ctx) {
 
     ctx.subscriptions.push(
       vscode.window.registerWebviewViewProvider(
-        'catface-status',
+        'bubbleface-status',
         provider
       )
     );
@@ -263,7 +270,7 @@ function activate(ctx) {
   } catch (err) {
     console.error("ERROR in activate():", err);
     console.error("Stack trace:", err.stack);
-    vscode.window.showErrorMessage(`CatFace activation error: ${err.message}`);
+    vscode.window.showErrorMessage(`BubbleFace activation error: ${err.message}`);
   }
 }
 
