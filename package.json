@@ -56,7 +56,23 @@
           "type": "string",
           "default": "default_image.jpg",
           "description": "Default image displayed when no image found for threshold"
+        },
+        "catface.bulletStyle": {
+          "type": "string",
+          "default": "^",
+          "description": "Bullet style for the list of messages in the webview. Can be any valid CSS list-style-type value."
+        },
+        "catface.errorColor": {
+          "type": "string",
+          "default": "#BA0606",
+          "description": "Color for error messages in the webview."
+        },
+        "catface.warningColor": {
+          "type": "string",
+          "default": "#DCE009",
+          "description": "Color for warning messages in the webview."
         }
+
       }
     }
   },
