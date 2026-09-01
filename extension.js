@@ -347,27 +347,36 @@ function getThreshold(count) {
 
 function loadThresholds() {
   try {
-    const csvPath = path.join(context.extensionPath, 'resources', 'threshold_levels.csv');
-    console.log("loadThresholds: csvPath:", csvPath);
+    const thresholdsDir = path.join(
+      context.extensionPath,
+      'resources',
+      'thresholds'
+    );
 
-    if (!fs.existsSync(csvPath)) {
-      console.error('Threshold CSV file not found at:', csvPath);
-      vscode.window.showErrorMessage('Threshold CSV file not found.');
-      return []; //error threshold
+    console.log("loadThresholds: thresholdsDir:", thresholdsDir);
+
+    if (!fs.existsSync(thresholdsDir)) {
+      console.error('Thresholds folder not found at:', thresholdsDir);
+      vscode.window.showErrorMessage('Thresholds folder not found.');
+      return [];
     }
 
-    const data = fs.readFileSync(csvPath, 'utf8');
-    const lines = data.trim().split('\n');
-    const thresholds = [];
-    for (let i = 1; i < lines.length; i++) { // skip header
-      const parts = lines[i].split(',');
-      if (parts.length > 1 && parts[1].trim() !== "") {
-        const level = Number(parts[1].trim());
-        thresholds.push(level);
-      }
-    }
-    console.log("loadThresholds: successfully loaded thresholds:", thresholds);
+    const entries = fs.readdirSync(thresholdsDir, { withFileTypes: true });
+
+    const thresholds = entries
+      .filter(entry => entry.isDirectory())
+      .map(entry => entry.name)
+      .filter(name => /^\d+$/.test(name)) // integers only
+      .map(name => Number(name))
+      .sort((a, b) => a - b);
+
+    console.log(
+      "loadThresholds: successfully loaded thresholds:",
+      thresholds
+    );
+
     return thresholds;
+
   } catch (err) {
     console.error("loadThresholds: error:", err);
     return [];
