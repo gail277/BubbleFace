@@ -4,20 +4,10 @@ Shows your cat in the status bar. The image changes mood based on how many
 errors/warnings are currently in your code.
 
 ## 1. Add your cat's photos
+You can. But why would you replace my fat boy with another?
+But if you really are heartless, just drop the images into each folder.
 
-Drop 4 images into the `media/` folder, named exactly:
-
-- `media/happy.png` — 0 problems
-- `media/concerned.png` — a few problems (default: 1-2)
-- `media/worried.png` — more problems (default: 3-5)
-- `media/distressed.png` — lots of problems (default: 6+)
-
-PNG or JPG both work — just keep the filenames matching (rename to `.png`
-even if the source is a `.jpg`, or edit the extension in `extension.js`
-`imageUri()` to use the right extension). Square-ish images around
-400-800px work best.
-
-You can adjust the thresholds in VS Code settings under `catface.thresholds`.
+Folder names are integers, representing the tolerance level for errors.
 
 ## 2. Install dependencies & run
 
