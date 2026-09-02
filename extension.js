@@ -20,35 +20,110 @@ let resourcesDir;
 let THRESHOLDS = [];
 // Reference to the sidebar webview view used to keep the panel and status bar in sync.
 let webviewView;
-// Tracks the last displayed error count so the UI only updates when the value changes.
-let previousCount = 0;
+// Stores the last rendered HTML so the extension avoids unnecessary UI refreshes.
+let previousErrorsHtml = '';
+// Cached mood groups loaded from the threshold folders, each containing messages and images.
+let MOODS = [];
 
 
 
 /**
- * Counts the current number of error diagnostics across the workspace.
- * Warnings are included only when the setting for warning contributions is enabled.
+ * Starts the extension, creates the status bar item, and registers all event listeners and commands.
  *
- * @returns {number} The total number of error problems currently reported.
+ * @param {vscode.ExtensionContext} ctx The extension context used for subscription lifecycle and resource paths.
+ * @returns {void} Nothing is returned.
  */
-function countProblems() {
-  // Read the active diagnostics from VS Code and count only the problems that matter
-  // for the current mood state. Errors always count, while warnings only count when
-  // the configuration allows them to affect the displayed mood.
-  const diagnostics = vscode.languages.getDiagnostics();
+function activate(ctx) {
+  try {
+    // Store the extension context so later logic can access the workspace resources and manage
+    // command subscriptions cleanly.
+    context = ctx;
+    config = vscode.workspace.getConfiguration('bubbleface');
 
-  let severeCount = 0;
-  let warningCount = 0;
-  for (const [, diags] of diagnostics) {
-    for (const d of diags) {
-      if (d.severity === vscode.DiagnosticSeverity.Error) severeCount++;
-      else if (config.get('warningsCountTowardMood') && d.severity === vscode.DiagnosticSeverity.Warning) warningCount++;
-    }
+    // Point to the extension's resource directory and load the numeric threshold values used to
+    // decide the displayed mood for different problem counts.
+    resourcesDir = path.join(context.extensionPath, 'resources');
+    THRESHOLDS = loadThresholds();
+  MOODS = loadMoods();  
+
+    // Create the status bar item that sits in the VS Code left-hand toolbar.
+    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    ctx.subscriptions.push(statusBarItem);
+
+    ctx.subscriptions.push(
+      vscode.commands.registerCommand('bubbleface.showPanel', () => {
+        // Reuse the same panel if it is already open; otherwise create a new one beside the editor.
+        if (panel) {
+          panel.reveal(vscode.ViewColumn.Beside);
+        } else {
+          panel = vscode.window.createWebviewPanel(
+            'bubbleface',
+            'BubbleFace',
+            vscode.ViewColumn.Beside,
+            {
+              enableScripts: false,
+              localResourceRoots: [vscode.Uri.file(path.join(ctx.extensionPath, 'resources'))]
+            }
+          );
+          panel.onDidDispose(() => { panel = undefined; });
+        }
+        updateStatusBar();
+      })
+    );
+
+    ctx.subscriptions.push(
+      vscode.languages.onDidChangeDiagnostics(() => updateStatusBar())
+    );
+
+    ctx.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('bubbleface')) updateStatusBar();
+      })
+    );
+
+    const provider = {
+      /**
+       * Populates the custom sidebar with the current mood and error summary.
+       */
+      resolveWebviewView(view) {
+        // Keep a reference to the active sidebar view so the status bar and panel can sync later.
+        webviewView = view;
+
+        view.webview.options = {
+          enableScripts: false,
+          localResourceRoots: [
+            vscode.Uri.file(path.join(ctx.extensionPath, 'resources'))
+          ]
+        };
+
+        // Build the content for the side panel from the live diagnostics and current threshold mood.
+        const { count, errorsHtml } = getProblemData();
+        const mood = getMood(count);
+
+        view.webview.html = getPanelHtml(view.webview, mood, count, errorsHtml);
+      }
+    };
+
+    ctx.subscriptions.push(
+      vscode.window.registerWebviewViewProvider(
+        'bubbleface-status',
+        provider
+      )
+    );
+
+    updateStatusBar();
+  } catch (err) {
+    vscode.window.showErrorMessage(`BubbleFace activation error: ${err.message}`);
   }
-  // The warning count is tracked for configuration checks but the UI and threshold logic
-  // use the error total as the main signal for problem severity.
-  return severeCount;
 }
+
+/**
+ * Handles extension deactivation cleanup.
+ *
+ * @returns {void} Nothing is returned.
+ */
+function deactivate() { }
+
 
 
 
@@ -58,32 +133,27 @@ function countProblems() {
  * @returns {void} Nothing is returned.
  */
 function updateStatusBar() {
-  // Recalculate the count each time the diagnostics change so the UI reflects the latest state.
-  const count = countProblems();
+    const { count, errorsHtml } = getProblemData();
 
-  // Skip redundant work if nothing changed. This avoids unnecessary UI updates while the
-  // user is editing code and reduces churn in the extension host.
-  if (count === previousCount) { return; }
-  previousCount = count;
+    if (errorsHtml === previousErrorsHtml) {
+        return;
+    }
+    previousErrorsHtml = errorsHtml;
 
-  // Convert the current problem count into the matching mood, message, and image.
-  const mood = getMood(count);
+    const mood = getMood(count);
 
-  // Update the VS Code status bar item so users can immediately see the current count.
-  statusBarItem.text = `Errors: ${count}`;
-  statusBarItem.tooltip =
-    `${mood.message} tooltip (${count} problem${count === 1 ? '' : 's'})`;
+    statusBarItem.text = `Errors: ${count}`;
+    statusBarItem.tooltip =
+        `${mood.message} tooltip (${count} problem${count === 1 ? '' : 's'})`;
 
-  statusBarItem.command = 'bubbleface.showPanel';
-  statusBarItem.show();
+    statusBarItem.command = 'bubbleface.showPanel';
+    statusBarItem.show();
 
-  // If the custom view is already open, refresh its HTML so the panel stays in sync.
-  if (webviewView) {
-    webviewView.webview.html =
-      getPanelHtml(webviewView.webview, mood, count);
-  }
+    if (webviewView) {
+        webviewView.webview.html =
+            getPanelHtml(webviewView.webview, mood, count, errorsHtml);
+    }
 }
-
 
 
 /**
@@ -94,9 +164,8 @@ function updateStatusBar() {
  * @param {number} count The current number of problems to display.
  * @returns {string} The generated HTML string for the panel.
  */
-function getPanelHtml(webview, mood, count) {
+function getPanelHtml(webview, mood, count, errorsHtml) {
   // Gather the current error/warning list and convert it to HTML markup before building the panel.
-  const errorsHtml = getErrorsHtml();
   const errorColor = config.get('errorColor');
   const warningColor = config.get('warningColor');
 
@@ -211,150 +280,50 @@ function getPanelHtml(webview, mood, count) {
 
 
 
-
 /**
- * Converts the current diagnostics into HTML list items for display in the panel.
+ * Collects the active diagnostic entries and converts them into the count and HTML list used by the panel.
  *
- * @returns {string} A string containing the rendered error and warning entries as HTML list items.
+ * @returns {{ count: number, errorsHtml: string }} The total problem count and the rendered HTML for display.
  */
-function getErrorsHtml() {
-  // Iterate through every active diagnostic and format each one into a list entry that can
-  // be rendered directly inside the webview UI.
-  const diagnostics = vscode.languages.getDiagnostics();
+function getProblemData() {
+    const diagnostics = vscode.languages.getDiagnostics();
 
-  let errorsHtml = "";
-  let warningsHtml = "";
+    let errorCount = 0;
+    let errorsHtml = "";
+    let warningsHtml = "";
 
-  for (const [, diags] of diagnostics) {
-    for (const d of diags) {
-      if (d.severity === vscode.DiagnosticSeverity.Error) {
+    const countWarnings = config.get('warningsCountTowardMood');
 
-        errorsHtml += `
+    for (const [, diags] of diagnostics) {
+        for (const d of diags) {
+            if (d.severity === vscode.DiagnosticSeverity.Error) {
+                errorCount++;
+
+                errorsHtml += `
                     <li class="error">
-                        <b>[Line ${d.range.start.line + 1}] </b>
+                        <b>[Line ${d.range.start.line + 1}]</b>
                         ${d.message}
-                    </li>
-                `;
-      }
-      else if (d.severity === vscode.DiagnosticSeverity.Warning && config.get('warningsCountTowardMood')) {
-
-        warningsHtml += `
-                    <li class="warning">
-                        <b>[Line ${d.range.start.line + 1}] </b>
-                        ${d.message}
-                    </li>
-                `;
-      }
-    }
-  }
-  const html = `<ul>${errorsHtml}${warningsHtml}</ul>`;
-
-  return html;
-}
-
-
-
-/**
- * Starts the extension, creates the status bar item, and registers all event listeners and commands.
- *
- * @param {vscode.ExtensionContext} ctx The extension context used for subscription lifecycle and resource paths.
- * @returns {void} Nothing is returned.
- */
-
-
-
-function activate(ctx) {
-  try {
-    // Store the extension context so later logic can access the workspace resources and manage
-    // command subscriptions cleanly.
-    context = ctx;
-    config = vscode.workspace.getConfiguration('bubbleface');
-
-    // Point to the extension's resource directory and load the numeric threshold values used to
-    // decide the displayed mood for different problem counts.
-    resourcesDir = path.join(context.extensionPath, 'resources');
-    THRESHOLDS = loadThresholds();
-
-    // Create the status bar item that sits in the VS Code left-hand toolbar.
-    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    ctx.subscriptions.push(statusBarItem);
-
-    ctx.subscriptions.push(
-      vscode.commands.registerCommand('bubbleface.showPanel', () => {
-        // Reuse the same panel if it is already open; otherwise create a new one beside the editor.
-        if (panel) {
-          panel.reveal(vscode.ViewColumn.Beside);
-        } else {
-          panel = vscode.window.createWebviewPanel(
-            'bubbleface',
-            'BubbleFace',
-            vscode.ViewColumn.Beside,
-            {
-              enableScripts: false,
-              localResourceRoots: [vscode.Uri.file(path.join(ctx.extensionPath, 'resources'))]
+                    </li>`;
             }
-          );
-          panel.onDidDispose(() => { panel = undefined; });
+            else if (
+                countWarnings &&
+                d.severity === vscode.DiagnosticSeverity.Warning
+            ) {
+                warningsHtml += `
+                    <li class="warning">
+                        <b>[Line ${d.range.start.line + 1}]</b>
+                        ${d.message}
+                    </li>`;
+            }
         }
-        updateStatusBar();
-      })
-    );
+    }
 
-    ctx.subscriptions.push(
-      vscode.languages.onDidChangeDiagnostics(() => updateStatusBar())
-    );
-
-    ctx.subscriptions.push(
-      vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('bubbleface')) updateStatusBar();
-      })
-    );
-
-    const provider = {
-      /**
-       * Populates the custom sidebar with the current mood and error summary.
-       */
-      resolveWebviewView(view) {
-        // Keep a reference to the active sidebar view so the status bar and panel can sync later.
-        webviewView = view;
-
-        view.webview.options = {
-          enableScripts: false,
-          localResourceRoots: [
-            vscode.Uri.file(path.join(ctx.extensionPath, 'resources'))
-          ]
-        };
-
-        // Build the content for the side panel from the live diagnostics and current threshold mood.
-        const count = countProblems();
-        const mood = getMood(count);
-
-        view.webview.html = getPanelHtml(view.webview, mood, count);
-      }
+    return {
+        count: errorCount,
+        errorsHtml: `<ul>${errorsHtml}${warningsHtml}</ul>`
     };
-
-    ctx.subscriptions.push(
-      vscode.window.registerWebviewViewProvider(
-        'bubbleface-status',
-        provider
-      )
-    );
-
-    updateStatusBar();
-  } catch (err) {
-    vscode.window.showErrorMessage(`BubbleFace activation error: ${err.message}`);
-  }
 }
-
-
-
-/**
- * Handles extension deactivation cleanup.
- *
- * @returns {void} Nothing is returned.
- */
-function deactivate() { }
-
+ 
 
 
 /**
@@ -364,78 +333,30 @@ function deactivate() { }
  * @returns {{ message: string, image: string }} An object containing the mood text and associated image path.
  */
 function getMood(count) {
-  // Determine which threshold bucket the current error count belongs to. If no threshold is
-  // available, fall back to the configured default mood.
-  let thresholdNum = getThreshold(count);
+    const thresholdIndex = getThreshold(count);
 
-  if (thresholdNum == -1) {
-    return { message: config.get('defaultMessage'), image: config.get('defaultImage') };
-  }
+    if (thresholdIndex === -1) {
+        return {
+            message: config.get('defaultMessage'),
+            image: path.join(resourcesDir, config.get('defaultImage'))
+        };
+    }
 
-  // Use the selected threshold folder to choose a random message and image for the current mood.
-  const thresholdDir = path.join(resourcesDir, `thresholds`, `${thresholdNum}`);
-  return { message: getMessage(thresholdDir), image: getImage(thresholdDir) };
+    const mood = MOODS[thresholdIndex];
+
+    const message = mood.messages.length > 0
+        ? mood.messages[Math.floor(Math.random() * mood.messages.length)]
+        : config.get('defaultMessage');
+
+    const image = mood.images.length > 0
+        ? mood.images[Math.floor(Math.random() * mood.images.length)]
+        : path.join(resourcesDir, config.get('defaultImage'));
+
+    return {
+        message,
+        image
+    };
 }
-
-
-
-/**
- * Reads a random motivational message from the current threshold's messages file.
- *
- * @param {string} thresholdDir The directory for the active threshold level.
- * @returns {string} A random message from the file, or the default message if none are available.
- */
-function getMessage(thresholdDir) {
-  // Each threshold folder contains a messages.txt file. Read it and pick a random line so the
-  // mood feels varied instead of static.
-  const messagesFile = path.join(thresholdDir, 'messages.txt');
-  let messages = [];
-  try {
-    const data = fs.readFileSync(messagesFile, 'utf8');
-    messages = data.trim().split('\n').filter(line => line.trim() !== '');
-  } catch (err) {
-    // File doesn't exist or can't be read — treat as "no messages found"
-    messages = [];
-  }
-
-  if (messages.length === 0) {
-    return config.get('defaultMessage');
-  }
-
-  const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-  return randomMessage;
-
-}
-
-
-
-/**
- * Selects a random image from the matching threshold folder for the current mood.
- *
- * @param {string} thresholdDir The directory for the active threshold level.
- * @returns {string} The path to a random valid image file, or the default image path when none exists.
- */
-function getImage(thresholdDir) {
-  // Each mood threshold can have multiple images. Pick one at random to keep the UI lively.
-  const imagesDir = path.join(thresholdDir, 'images');
-
-  let files = [];
-  try {
-    files = fs.readdirSync(imagesDir).filter(f => /\.(png|jpe?g|gif|webp)$/i.test(f));
-  } catch (err) {
-    // Folder doesn't exist — treat as "no images found"
-    files = [];
-  }
-
-  if (files.length === 0) {
-    return path.join(resourcesDir, config.get('defaultImage'));
-  }
-
-  const randomFile = files[Math.floor(Math.random() * files.length)];
-  return path.join(imagesDir, randomFile);
-}
-
-
 
 /**
  * Finds the threshold index that matches the current problem count.
@@ -444,16 +365,16 @@ function getImage(thresholdDir) {
  * @returns {number} The threshold index for the current count, or -1 if no thresholds are available.
  */
 function getThreshold(count) {
-  // Thresholds are sorted ascending, so the first value that is greater than or equal to the
-  // current count determines the correct mood bucket.
-  if (THRESHOLDS.length == 0) return -1;
-  for (let i = 0; i < THRESHOLDS.length; i++) {
-    if (count <= THRESHOLDS[i]) {
-      return i;
+    if (THRESHOLDS.length == 0) return -1;
+
+    for (let i = 0; i < THRESHOLDS.length; i++) {
+        if (count <= THRESHOLDS[i]) {
+            return i;
+        }
     }
-  }
-  return THRESHOLDS.length - 1;
-}
+
+    return THRESHOLDS.length - 1;
+} 
 
 
 
@@ -496,4 +417,64 @@ function loadThresholds() {
   }
 }
 
+
+/**
+ * Loads each numeric threshold folder into a mood object containing its messages and image list.
+ *
+ * @returns {{ threshold: number, messages: string[], images: string[] }[]} A collection of mood groups for each threshold level.
+ */
+function loadMoods() {
+    return THRESHOLDS.map(threshold => {
+        const thresholdDir = path.join(
+            resourcesDir,
+            'thresholds',
+            String(threshold)
+        );
+
+        return {
+            threshold,
+            messages: loadMessages(thresholdDir),
+            images: loadImages(thresholdDir)
+        };
+    });
+}
+
+/**
+ * Reads all non-empty lines from a threshold's messages file.
+ *
+ * @param {string} thresholdDir The directory containing the threshold's message file.
+ * @returns {string[]} An array of valid message strings, or an empty array if no file is available.
+ */
+function loadMessages(thresholdDir) {
+    const file = path.join(thresholdDir, 'messages.txt');
+
+    try {
+        return fs.readFileSync(file, 'utf8')
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(Boolean);
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Lists the valid image files inside a threshold folder for mood display.
+ *
+ * @param {string} thresholdDir The directory containing the threshold's image folder.
+ * @returns {string[]} A list of image file paths, or an empty array if no valid images are present.
+ */
+function loadImages(thresholdDir) {
+    const dir = path.join(thresholdDir, 'images');
+
+    try {
+        return fs.readdirSync(dir)
+            .filter(file => /\.(png|jpe?g|gif|webp)$/i.test(file))
+            .map(file => path.join(dir, file));
+    } catch {
+        return [];
+    }
+}
+
 module.exports = { activate, deactivate };
+
