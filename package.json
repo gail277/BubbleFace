@@ -1,9 +1,13 @@
 {
   "name": "bubbleface",
   "displayName": "BubbleFace",
-  "description": "Shows MY cat in the status bar, judging you and the many errors/warnings in your code. You can also make it you car but why do that when you can have mine?",
+  "description": "Shows my cat in the status bar, judging you and the many errors/warnings in your code. Message and image changes based on number of errors and warnings.",
   "version": "0.0.1",
-  "publisher": "Abigail the cat lover",
+  "publisher": "gail277",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gail277/bubble-face.git"
+  },
   "engines": {
     "vscode": "^1.80.0"
   },
