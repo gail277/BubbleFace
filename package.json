@@ -54,22 +54,22 @@
         },
         "bubbleface.defaultImage": {
           "type": "string",
-          "default": "default_image.jpg",
+          "default": "default_image.png",
           "description": "Default image displayed when no image found for threshold"
         },
         "bubbleface.bulletStyle": {
           "type": "string",
-          "default": "^",
+          "default": "✦",
           "description": "Bullet style for the list of messages in the webview. Can be any valid CSS list-style-type value."
         },
         "bubbleface.errorColor": {
           "type": "string",
-          "default": "#BA0606",
+          "default": "",
           "description": "Color for error messages in the webview."
         },
         "bubbleface.warningColor": {
           "type": "string",
-          "default": "#DCE009",
+          "default": "",
           "description": "Color for warning messages in the webview."
         }
 
