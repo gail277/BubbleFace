@@ -4,6 +4,10 @@ BubbleFace is a VS Code extension that turns your code quality into a playful mo
 
 It is designed to be lighthearted and visual: as your error count rises, the panel gets more dramatic, and the messages/images change to reflect the mood.
 
+### Credits
+This was inspired by Joshua Long Yu Xuan's VSCode extension called CatFace found here: sadliquid.github.io/CatFace/ 
+but with more variety in pictures and messages - and with pictures of my cat instead of cats from the internet.
+
 ## Features
 
 - Shows a status bar item with the current error count
